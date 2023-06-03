@@ -1,0 +1,68 @@
+- hosts: all
+  become: true
+  vars:
+    deploy_username: deploy
+
+  tasks:
+    - name: Update apt and install required system packages
+      apt:
+        pkg:
+          - curl
+          - vim
+          - git
+          - ufw
+          - python3-pip
+        state: latest
+        update_cache: true
+
+    - name: Install Supervisor
+      ansible.builtin.pip:
+        name: supervisor
+
+    - name: UFW - Allow SSH connections
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: UFW - Allow HTTP connections
+      community.general.ufw:
+        rule: allow
+        name: WWW Full
+        from: 192.168.15.0/24
+
+    - name: UFW - Enable and deny by default
+      community.general.ufw:
+        state: enabled
+        default: deny
+
+    - name: Config Supervisord Systemd Unit
+      ansible.builtin.copy:
+        src: ./files/supervisord.service
+        dest: /etc/systemd/system/supervisord.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Supervisord config
+      ansible.builtin.copy:
+        src: ./files/supervisord.conf
+        dest: /etc/supervisord.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create Supervisord log folder
+      ansible.builtin.file:
+        path: /var/log/supervisor
+        state: directory
+        owner: root
+        group: root
+        mode: '0744'
+
+    - name: Start Supervisord Service
+      ansible.builtin.systemd:
+        state: started
+        enabled: true
+        daemon_reload: true
+        name: supervisord
+
